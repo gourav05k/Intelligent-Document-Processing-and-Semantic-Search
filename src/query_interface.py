@@ -1,5 +1,4 @@
-from langchain.llms import OpenAI
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import OpenAI, ChatOpenAI
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain.schema import BaseOutputParser
 from typing import Dict, List, Optional, Any
@@ -19,9 +18,9 @@ class QueryInterface:
     def __init__(self):
         self.storage_manager = StorageManager()
         self.llm = ChatOpenAI(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",
             temperature=0.1,
-            openai_api_key=settings.openai_api_key
+            api_key=settings.openai_api_key
         )
         
         self.system_prompt = self._create_system_prompt()

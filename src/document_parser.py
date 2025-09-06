@@ -44,8 +44,8 @@ class DocumentParser:
             doc.close()
             
             # If we got substantial text, it's machine-readable
-            # Threshold: 100 characters total across checked pages
-            is_readable = text_length > 100
+            # Threshold: 20 characters total across checked pages (lowered for documents with less text)
+            is_readable = text_length > 20
             logger.info(f"PDF readability check: {text_length} characters across {pages_to_check} page(s), machine-readable: {is_readable}")
             return is_readable
         

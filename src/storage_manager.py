@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from typing import List, Dict, Optional, Any
 import uuid
 import logging
@@ -25,11 +25,12 @@ class StorageManager:
         self.qdrant_client = QdrantClient(
             host=settings.qdrant_host,
             port=settings.qdrant_port,
-            api_key=settings.qdrant_api_key
+            api_key=None,  # No API key for local Docker instance
+            https=False  # Disable SSL for local Docker instance
         )
         
         # Embeddings
-        self.embeddings = OpenAIEmbeddings(openai_api_key=settings.openai_api_key)
+        self.embeddings = OpenAIEmbeddings(api_key=settings.openai_api_key)
         
         # Metadata schema definitions
         self.core_metadata_schema = {
@@ -70,12 +71,18 @@ class StorageManager:
             try:
                 self.qdrant_client.get_collection(collection_name)
                 logger.info(f"Qdrant collection '{collection_name}' already exists")
-            except:
-                self.qdrant_client.create_collection(
-                    collection_name=collection_name,
-                    vectors_config=VectorParams(size=1536, distance=Distance.COSINE)
-                )
-                logger.info(f"Created Qdrant collection '{collection_name}' with hybrid metadata schema")
+            except Exception as e:
+                try:
+                    self.qdrant_client.create_collection(
+                        collection_name=collection_name,
+                        vectors_config=VectorParams(size=1536, distance=Distance.COSINE)
+                    )
+                    logger.info(f"Created Qdrant collection '{collection_name}' with hybrid metadata schema")
+                except Exception as create_error:
+                    if "already exists" in str(create_error).lower():
+                        logger.info(f"Qdrant collection '{collection_name}' already exists (creation attempted)")
+                    else:
+                        raise create_error
         
         except Exception as e:
             logger.error(f"Error initializing databases: {e}")
@@ -86,11 +93,14 @@ class StorageManager:
         return self.SessionLocal()
     
     # PostgreSQL Operations
-    def create_property(self, property_name: str, total_units: int = None) -> Property:
+    def create_property(self, property_name: str, total_units: int = None):
         """Create a new property"""
         try:
             with self.get_db_session() as db:
-                property_obj = Property(
+                # Import here to avoid circular imports
+                from src.models.database import Property as PropertyDB
+                
+                property_obj = PropertyDB(
                     property_name=property_name,
                     total_units=total_units
                 )
@@ -103,13 +113,16 @@ class StorageManager:
             logger.error(f"Error creating property: {e}")
             raise
     
-    def create_units(self, units: List[UnitCreate]) -> List[Unit]:
+    def create_units(self, units: List[UnitCreate]):
         """Create multiple units"""
         try:
             with self.get_db_session() as db:
+                # Import here to avoid circular imports
+                from src.models.database import Unit as UnitDB
+                
                 unit_objects = []
                 for unit_data in units:
-                    unit_obj = Unit(**unit_data.dict())
+                    unit_obj = UnitDB(**unit_data.dict())
                     db.add(unit_obj)
                     unit_objects.append(unit_obj)
                 
