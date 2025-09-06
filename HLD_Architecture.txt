@@ -1,0 +1,323 @@
+# High-Level Design Architecture
+## Intelligent Document Processing & Conversational AI System
+
+### 1. SYSTEM OVERVIEW
+```
+Purpose: End-to-end intelligent document processing system for financial documents
+Goal: Extract, store, and query information using AI/ML techniques
+Document Types: Machine-readable PDFs + Scanned PDFs (OCR required)
+```
+
+### 2. ARCHITECTURE COMPONENTS
+
+#### 2.1 INPUT LAYER
+- **Machine-readable Financial PDFs**: Direct text extraction capability
+- **Scanned Financial PDFs**: Require OCR processing for text extraction
+- **Data Format**: Tabular financial data (units, rent, lease information)
+
+#### 2.2 DOCUMENT PROCESSING LAYER
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 Document Processing Pipeline                │
+├─────────────────────────────────────────────────────────────┤
+│ document_parser.py:                                         │
+│ ├── PDF Type Detection (machine-readable vs scanned)        │
+│ ├── Text Extraction (PyMuPDF/pdfplumber)                    │
+│ ├── OCR Processing (Tesseract + pytesseract)                │
+│ ├── Image Preprocessing (Pillow)                            │
+│ └── Structured Data Extraction (Regex + NLP)                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Technologies:**
+- **PyMuPDF (fitz)**: Machine-readable PDF text extraction
+- **Tesseract OCR + pytesseract**: Scanned document OCR
+- **pdf2image**: PDF to image conversion
+- **Pillow (PIL)**: Image preprocessing for OCR accuracy
+- **pdfplumber**: Alternative table extraction
+
+**Extracted Fields:**
+1. Unit Number
+2. Unit Type  
+3. Area / Square Ft
+4. Tenant Name
+5. Rent Amount
+6. Total Amount
+7. Lease Start Date
+8. Lease End Date
+9. Move In Date
+10. Move Out Date
+
+#### 2.3 AI/ML LAYER
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    AI/ML Processing                         │
+├─────────────────────────────────────────────────────────────┤
+│ LangChain Framework:                                        │
+│ ├── Document Loaders & Text Splitters                       │
+│ ├── Embedding Generation (OpenAI text-embedding-ada-002)    │
+│ ├── Vector Store Integration (Qdrant)                       │
+│ ├── LLM Integration (GPT-4o)                                │
+│ └── RAG Chain Orchestration                                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Components:**
+- **Embedding Model**: OpenAI text-embedding-ada-002 (1536 dimensions)
+- **Language Model**: GPT-4o for conversational interface
+- **Framework**: LangChain for workflow orchestration
+
+#### 2.4 STORAGE LAYER (HYBRID ARCHITECTURE)
+
+**2.4.1 Structured Data Storage - PostgreSQL**
+```sql
+-- Database Schema Design
+CREATE TABLE properties (
+    id SERIAL PRIMARY KEY,
+    property_name VARCHAR(255),
+    total_units INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE units (
+    id SERIAL PRIMARY KEY,
+    property_id INTEGER REFERENCES properties(id),
+    unit_number VARCHAR(20),
+    unit_type VARCHAR(50),
+    area_sqft INTEGER,
+    rent_amount DECIMAL(10,2),
+    status VARCHAR(20) DEFAULT 'vacant',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE leases (
+    id SERIAL PRIMARY KEY,
+    unit_id INTEGER REFERENCES units(id),
+    tenant_name VARCHAR(255),
+    lease_start DATE,
+    lease_end DATE,
+    move_in_date DATE,
+    move_out_date DATE,
+    total_amount DECIMAL(10,2),
+    status VARCHAR(20) DEFAULT 'active'
+);
+
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    filename VARCHAR(255),
+    document_type VARCHAR(50),
+    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    content_text TEXT
+);
+```
+
+**2.4.2 Vector Storage - Qdrant**
+```python
+# Qdrant Collection Configuration
+{
+    "collection_name": "financial_documents",
+    "vector_size": 1536,  # OpenAI embedding dimensions
+    "distance": "Cosine",
+    "metadata_schema": {
+        "document_id": "integer",
+        "document_type": "keyword",
+        "unit_number": "keyword", 
+        "tenant_name": "keyword",
+        "content_chunk": "text"
+    }
+}
+```
+
+#### 2.5 APPLICATION LAYER
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Application Services                       │
+├─────────────────────────────────────────────────────────────┤
+│ storage_manager.py:                                         │
+│ ├── PostgreSQL Operations (SQLAlchemy ORM)                  │
+│ ├── Qdrant Vector Operations                                │
+│ ├── Data Validation (Pydantic Models)                       │
+│ └── Transaction Management                                  │
+│                                                             │
+│ query_interface.py:                                         │
+│ ├── Natural Language Query Processing                       │
+│ ├── Hybrid Search (Vector + SQL)                            │
+│ ├── Response Generation & Formatting                        │
+│ └── Context Management                                      │
+│                                                             │
+│ main.py:                                                    │
+│ ├── Application Orchestration                               │
+│ ├── Configuration Management                                │
+│ └── Error Handling & Logging                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 2.6 USER INTERFACE LAYER
+- **Conversational Interface**: FastAPI + React
+- **Query Types Supported**:
+  - "What is the total square feet for the property?"
+  - "What is the total rent for the property?"  
+  - "Out of total units how many units are Occupied/Vacant?"
+  - Semantic queries about lease terms, policies, etc.
+
+### 3. DATA FLOW ARCHITECTURE
+
+#### 3.1 Document Ingestion Flow
+```
+PDF Input → Document Parser → Type Detection → Processing Pipeline
+                                    ↓
+            Machine-readable ←→ Text Extraction (PyMuPDF)
+                                    ↓
+            Scanned Document ←→ OCR Processing (Tesseract)
+                                    ↓
+            Structured Data Extraction (Regex + NLP)
+                                    ↓
+            Data Validation & Normalization (Pydantic)
+                                    ↓
+            Dual Storage: PostgreSQL + Qdrant Embeddings
+```
+
+#### 3.2 Query Processing Flow
+```
+User Query → LangChain Query Processor → Intent Analysis
+                        ↓
+            Query Type Classification:
+            ├── Structured Query → PostgreSQL (SQL)
+            ├── Semantic Query → Qdrant (Vector Search)  
+            └── Hybrid Query → Both Databases
+                        ↓
+            Result Aggregation → LLM Response Generation
+                        ↓
+            Formatted Response with Context & References
+```
+
+### 4. TECHNOLOGY STACK
+
+#### 4.1 Core Framework
+- **Language**: Python 3.11+
+- **Framework**: LangChain
+- **Web Framework**: FastAPI
+
+#### 4.2 Document Processing
+- **PDF Processing**: PyMuPDF, pdfplumber
+- **OCR**: Tesseract + pytesseract
+- **Image Processing**: Pillow, pdf2image
+
+#### 4.3 AI/ML
+- **LLM**: OpenAI GPT-40
+- **Embeddings**: OpenAI text-embedding-ada-002
+- **Framework**: LangChain
+
+#### 4.4 Databases
+- **Structured Data**: PostgreSQL + SQLAlchemy
+- **Vector Data**: Qdrant
+- **Migrations**: Alembic
+
+#### 4.5 Supporting Libraries
+- **Data Processing**: pandas, numpy
+- **Validation**: pydantic
+- **Configuration**: python-dotenv
+- **Testing**: pytest
+
+### 5. SYSTEM INTEGRATION PATTERNS
+
+#### 5.1 Hybrid Search Strategy
+```python
+# Example Query Processing
+def process_query(user_query: str):
+    # 1. Analyze query intent
+    intent = classify_query_intent(user_query)
+    
+    if intent == "structured":
+        # Direct SQL query
+        return execute_sql_query(user_query)
+    elif intent == "semantic":
+        # Vector similarity search
+        return vector_search(user_query)
+    else:
+        # Hybrid: combine both approaches
+        vector_results = vector_search(user_query)
+        sql_results = execute_sql_query(user_query)
+        return combine_results(vector_results, sql_results)
+```
+
+#### 5.2 Error Handling Strategy
+- **OCR Failures**: Fallback to alternative extraction methods
+- **Missing Data**: Graceful degradation with partial results
+- **Query Ambiguity**: Request clarification from user
+- **Database Errors**: Retry logic and fallback mechanisms
+
+### 6. SCALABILITY & PERFORMANCE
+
+#### 6.1 Database Optimization
+- **PostgreSQL**: Proper indexing on frequently queried fields
+- **Qdrant**: Collection partitioning for large document volumes
+- **Caching**: Redis for frequently accessed queries
+
+#### 6.2 Processing Optimization
+- **Batch Processing**: Handle multiple documents efficiently
+- **Async Operations**: Non-blocking I/O for better performance
+- **Resource Management**: Proper memory handling for large PDFs
+
+### 7. SECURITY & COMPLIANCE
+
+#### 7.1 Data Security
+- **Encryption**: At rest (database) and in transit (API calls)
+- **Access Control**: Role-based permissions
+- **Audit Logging**: Track all financial data operations
+
+#### 7.2 Privacy Considerations
+- **Data Anonymization**: Remove PII from embeddings when possible
+- **Secure Storage**: Encrypted database connections
+- **API Security**: Authentication and rate limiting
+
+### 8. DEPLOYMENT ARCHITECTURE
+
+#### 8.1 Development Environment
+```
+Local Development:
+├── PostgreSQL (Docker container)
+├── Qdrant (Docker container)  
+├── Python Application (Virtual environment)
+└── Environment Variables (.env file)
+```
+
+#### 8.2 Production Considerations
+- **Containerization**: Docker containers for all services
+- **Orchestration**: Docker Compose or Kubernetes
+- **Monitoring**: Application and database monitoring
+- **Backup Strategy**: Regular database backups
+
+### 9. PROJECT STRUCTURE
+```
+intelligent-document-processing-and-semantic-search/
+├── README.md
+├── requirements.txt
+├── .env.example
+├── docker-compose.yml
+├── src/
+│   ├── __init__.py
+│   ├── document_parser.py      # Document processing pipeline
+│   ├── storage_manager.py      # Database operations
+│   ├── query_interface.py      # Conversational AI interface
+│   ├── main.py                # Application entry point
+│   ├── models/                # Data models
+│   │   ├── __init__.py
+│   │   ├── schemas.py         # Pydantic models
+│   │   └── database.py        # SQLAlchemy models
+│   ├── utils/                 # Utility functions
+│   │   ├── __init__.py
+│   │   ├── ocr_utils.py       # OCR helper functions
+│   │   ├── text_processing.py # Text processing utilities
+│   │   └── vector_utils.py    # Vector operations
+│   └── config/
+│       ├── __init__.py
+│       └── settings.py        # Configuration management
+├── data/                      # Sample documents
+├── tests/                     # Test files
+├── docs/                      # Documentation
+├── migrations/                # Database migrations
+└── scripts/                   # Utility scripts
+```
+
+This architecture provides a robust, scalable foundation for processing financial documents and enabling conversational AI interactions while maintaining data integrity, performance, and security.

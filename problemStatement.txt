@@ -1,0 +1,104 @@
+===============================================================
+Intelligent Document Processing & Conversational AI Project:
+===============================================================
+
+Part 1: Document Parsing & Information Extraction (45 points)
+Task: You will be provided with a sample dataset containing:
+    • 1 financial data PDF (machine-readable)
+    • 1 scanned financial data PDF (requires OCR)
+Requirements:
+    1.Text Extraction (15 points)
+        a. Parse text from all document types
+        b. Handle both machine-readable and image-based documents
+        c. Use appropriate OCR libraries
+    2. Structured Data Extraction (30 points)
+        a. Extract the following columns from each document:
+            i. Unit
+            ii. Unit Type
+            iii. Area / Square Ft
+            iv. Tenant Name
+            v. Rent
+            vi. Total Amount
+            vii. Lease Start
+            viii. Lease End
+            ix. Move In Date
+            x. Move Out Date
+        b. Handle variations in document formats and layouts
+
+Evaluation Criteria:
+    •Accuracy of extracted information
+    •Code quality and error handling
+    •Choice and implementation of parsing tools
+    •Ability to handle different document formats
+
+--------------------------------------------------------
+
+Part 2: Knowledge Storage & Retrieval (30 points)
+
+Task: Design and implement a storage system for the extracted information.
+
+Requirements:
+    1. Data Storage (15 points)
+        a.Store structured data in a database (SQLite, PostgreSQL, or NoSQL)
+        b.Design appropriate schema for invoice/receipt data
+        c.Ensure data integrity and relationships
+
+    2. Vector Storage (15 points)
+        a.Create embeddings for document content
+        b.Store in a vector database
+        c.Enable semantic search capabilities
+
+Evaluation Criteria:
+    •Database schema design and normalization
+    •Embedding strategy and vector storage implementation
+    •Query efficiency and data retrieval accuracy
+
+--------------------------------------------------------
+
+Part 3: Conversational Query Interface (25 points)
+Task: Build a conversational interface that can answer natural language questions about the stored documents.
+Requirements:
+    1.Query Processing (15 points)
+        a.Handle questions like:
+            i."What is the total square feet for the property?"
+            ii."What is the total rent for the property?"
+            iii."Out of total units how many units are Occupied/Vacant?”
+        b.Use LangChain, LlamaIndex, or similar frameworks
+
+
+    2.Response Generation (10 points)
+        a.Provide accurate, contextual responses
+        b.Include relevant document references
+        c.Handle cases where information is not available
+
+Evaluation Criteria:
+    •Accuracy of query understanding and response
+    •Quality of retrieval from stored systems
+    •LLM integration and prompt engineering
+    •Error handling for edge cases
+
+--------------------------------------------------------
+
+Technical Requirements
+    •Language: Python 3.11+
+    •Database: SQLite (minimum) or your preferred database
+    •Vector Database: Milvus, Qdrant, or similar
+    •LLM Integration: OpenAI API, Azure OpenAI, or open-source alternatives
+    •Framework: LangChain, LlamaIndex, or custom implementation
+
+--------------------------------------------------------
+Deliverables:
+
+1. git repo
+    Structure:
+        intelligent-document-processing-and-semantic-search/
+        ├── README.md 
+        ├── requirements.txt 
+        ├── src/
+        │   ├── document_parser.py 
+        │   ├── storage_manager.py
+        │   ├── query_interface.py
+        │   └── main.py
+        ├── data/ (sample documents will be provided)
+        ├── tests/ (optional but appreciated)
+        └── docs/
